@@ -3,6 +3,7 @@ package com.bank.transfer_service.service;
 import com.bank.transfer_service.config.AccountServiceClient;
 import com.bank.transfer_service.domain.Transfer;
 import com.bank.transfer_service.domain.TransferStatus;
+import com.bank.transfer_service.exception.AccountException;
 import com.bank.transfer_service.model.AccountResponse;
 import com.bank.transfer_service.model.TransferDTO;
 import com.bank.transfer_service.model.TransferRequest;
@@ -74,7 +75,7 @@ public class TransferService {
                 .orElseThrow(NotFoundException::new);
     }
 
-    public TransferResponse create(final TransferRequest transferRequest) {
+    public TransferResponse create(final TransferRequest transferRequest) throws AccountException {
 
         validateAccounts(transferRequest.fromAccountId(), transferRequest.toAccountId());
         String transferReference = generateTransferReference();
@@ -87,6 +88,27 @@ public class TransferService {
         transfer.setCurrency(transferRequest.currency());
         transfer.setStatus(TransferStatus.INITIATED);
         transfer.setInitiatedAt(Instant.now());
+
+        transferRepository.save(transfer);
+
+        AccountResponse debitAccount = accountClient.getDebitAccount(transferRequest.fromAccountId(), transferRequest.amount());
+        if (!debitAccount.isSuccess()) {
+            transfer.setStatus(TransferStatus.FAILED);
+            transferRepository.save(transfer);
+            throw new AccountException("Debit failed");
+        }
+
+        transfer.setStatus(TransferStatus.DEBIT_SUCCESS);
+
+        // credit
+        AccountResponse creditAccount = accountClient.getCreditAccount(transfer.getToAccountId(), transferRequest.amount());
+
+        if (!creditAccount.isSuccess()){
+            transfer.setStatus(TransferStatus.ROLLED_BACK);
+            transferRepository.save(transfer);
+            throw new AccountException("Credit Failed.");
+        }
+        transfer.setStatus(TransferStatus.CREDIT_SUCCESS);
 
         Transfer savedTransfer = transferRepository.save(transfer);
 
