@@ -12,5 +12,6 @@ public class AccountResponse {
     private String accountNumber;
     private BigDecimal balance;
     private AccountStatus accountStatus;
+    private boolean success = true;
 
 }
