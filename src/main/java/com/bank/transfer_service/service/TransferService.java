@@ -70,9 +70,7 @@ public class TransferService {
     }
 
     public TransferDTO get(final UUID id) {
-        return transferRepository.findById(id)
-                .map(transfer -> mapToDTO(transfer, new TransferDTO()))
-                .orElseThrow(NotFoundException::new);
+        return transferRepository.findById(id).map(transfer -> mapToDTO(transfer, new TransferDTO())).orElseThrow(NotFoundException::new);
     }
 
     public TransferResponse create(final TransferRequest transferRequest) throws AccountException {
@@ -103,7 +101,7 @@ public class TransferService {
         // credit
         AccountResponse creditAccount = accountClient.getCreditAccount(transfer.getToAccountId(), transferRequest.amount());
 
-        if (!creditAccount.isSuccess()){
+        if (!creditAccount.isSuccess()) {
             transfer.setStatus(TransferStatus.ROLLED_BACK);
             transferRepository.save(transfer);
             throw new AccountException("Credit Failed.");
@@ -128,8 +126,7 @@ public class TransferService {
     }
 
     private String generateTransferReference() {
-        String date = LocalDate.now()
-                .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
         String code = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
 
@@ -143,53 +140,49 @@ public class TransferService {
 
         if (fromAccount == null) {
             throw new NotFoundException("Sender Account Not Found.");
-        } if (toAccount == null) {
+        }
+        if (toAccount == null) {
             throw new NotFoundException("Receiver Account Not Found.");
-        }else {
+        } else {
             return true;
         }
     }
 
     public void update(final UUID id, final TransferDTO transferDTO) {
-        final Transfer transfer = transferRepository.findById(id)
-                .orElseThrow(NotFoundException::new);
+        final Transfer transfer = transferRepository.findById(id).orElseThrow(NotFoundException::new);
         mapToEntity(transferDTO, transfer);
         transferRepository.save(transfer);
     }
 
     public void delete(final UUID id) {
-        final Transfer transfer = transferRepository.findById(id)
-                .orElseThrow(NotFoundException::new);
+        final Transfer transfer = transferRepository.findById(id).orElseThrow(NotFoundException::new);
         transferRepository.delete(transfer);
     }
 
     public List<TransferDTO> searchTransfers(final String fromAccountNumber, final String toAccountNumber, final TransferStatus status, Pageable pageable) {
         UUID fromId = null, toId = null;
 
-        if(fromAccountNumber != null){
+        if (fromAccountNumber != null) {
             AccountResponse fromAcc = accountClient.getTransferList(fromAccountNumber);
-            if (fromAcc != null){
+            if (fromAcc != null) {
                 fromId = fromAcc.getAccountId();
             }
         }
 
-        if (toAccountNumber != null){
+        if (toAccountNumber != null) {
             AccountResponse toAcc = accountClient.getTransferList(toAccountNumber);
-            if (toAcc != null){
+            if (toAcc != null) {
                 toId = toAcc.getAccountId();
             }
         }
 
         List<Transfer> byFromAccountIdOrToAccountId = transferRepository.findByFromAccountIdOrToAccountId(fromId, toId, pageable);
 
-        List<TransferDTO> transferDTOS = byFromAccountIdOrToAccountId.stream().map(
-                t -> mapToDTO(t, new TransferDTO())
-        ).toList();
+        List<TransferDTO> transferDTOS = byFromAccountIdOrToAccountId.stream().map(t -> mapToDTO(t, new TransferDTO())).toList();
 
         return transferDTOS;
 
     }
-
 
 
     private TransferDTO mapToDTO(final Transfer transfer, final TransferDTO transferDTO) {
