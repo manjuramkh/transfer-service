@@ -1,9 +1,7 @@
 package com.bank.transfer_service.rest;
 
-import com.bank.transfer_service.config.AccountServiceClient;
 import com.bank.transfer_service.domain.TransferStatus;
 import com.bank.transfer_service.exception.AccountException;
-import com.bank.transfer_service.model.AccountResponse;
 import com.bank.transfer_service.model.TransferDTO;
 import com.bank.transfer_service.model.TransferRequest;
 import com.bank.transfer_service.model.TransferResponse;
@@ -73,7 +71,7 @@ public class TransferResource {
             description = "Successfully created a new transfer"
     )
     @PostMapping
-    public ResponseEntity<TransferResponse> createTransfer(@RequestBody @Valid final TransferRequest transferRequest) throws AccountException {
+    public ResponseEntity<TransferResponse> createTransfer(@RequestBody @Valid final TransferRequest transferRequest) throws AccountException, AccountException {
         final TransferResponse response = transferService.create(transferRequest);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }

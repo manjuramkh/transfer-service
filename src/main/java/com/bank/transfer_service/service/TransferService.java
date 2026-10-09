@@ -3,6 +3,8 @@ package com.bank.transfer_service.service;
 import com.bank.transfer_service.config.AccountServiceClient;
 import com.bank.transfer_service.domain.Transfer;
 import com.bank.transfer_service.domain.TransferStatus;
+import com.bank.transfer_service.events.TransferCompletedEvent;
+import com.bank.transfer_service.events.TransferEventProducer;
 import com.bank.transfer_service.exception.AccountException;
 import com.bank.transfer_service.model.AccountResponse;
 import com.bank.transfer_service.model.TransferDTO;
@@ -37,11 +39,15 @@ public class TransferService {
 
     private final TransferRepository transferRepository;
     private final AccountServiceClient accountClient;
+    private final TransferEventProducer transferEventProducer;
 
 
-    public TransferService(final TransferRepository transferRepository, final AccountServiceClient accountClient) {
+    public TransferService(final TransferRepository transferRepository,
+                           final AccountServiceClient accountClient,
+                           final TransferEventProducer transferEventProducer) {
         this.accountClient = accountClient;
         this.transferRepository = transferRepository;
+        this.transferEventProducer = transferEventProducer;
     }
 
     public List<TransferResponse> findAll() {
@@ -70,7 +76,9 @@ public class TransferService {
     }
 
     public TransferDTO get(final UUID id) {
-        return transferRepository.findById(id).map(transfer -> mapToDTO(transfer, new TransferDTO())).orElseThrow(NotFoundException::new);
+        return transferRepository.findById(id)
+                .map(transfer -> mapToDTO(transfer, new TransferDTO()))
+                .orElseThrow(NotFoundException::new);
     }
 
     public TransferResponse create(final TransferRequest transferRequest) throws AccountException {
@@ -109,6 +117,20 @@ public class TransferService {
         transfer.setStatus(TransferStatus.CREDIT_SUCCESS);
 
         Transfer savedTransfer = transferRepository.save(transfer);
+
+        // transferCompletedEvent - Kafka Event
+        TransferCompletedEvent event = new TransferCompletedEvent(
+                savedTransfer.getId(),
+                savedTransfer.getTransferReference(),
+                savedTransfer.getFromAccountId(),
+                savedTransfer.getToAccountId(),
+                savedTransfer.getAmount(),
+                savedTransfer.getCurrency(),
+                savedTransfer.getStatus(),
+                Instant.now()
+        );
+
+        transferEventProducer.publishTransferCompleted(event);
 
         TransferResponse transferResponse = new TransferResponse();
         transferResponse.setTransferId(savedTransfer.getId());
